@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cat downloadable_courses.txt | xargs -I '{}' ./process_current_courses {}

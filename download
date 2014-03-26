@@ -1,0 +1,52 @@
+#!/bin/ksh
+
+USAGE="Usage: `basename $0` [-hv] [-u username] [-p password] [-d output_dir] [course_names...]"
+
+while getopts hvu:p:d: OPT; do
+  case "$OPT" in
+    h)
+      echo $USAGE
+      exit 0
+      ;;
+    v)
+      echo "`basename $0` version 0.1"
+      exit 0
+      ;;
+    u)
+      username=$OPTARG
+      ;;
+    p)
+      password=$OPTARG
+      ;;
+    d)
+      output_dir=$OPTARG
+      ;;
+    \?)
+      echo $USAGE >&2
+      exit 1
+      ;;
+  esac
+
+done
+
+shift `expr $OPTIND - 1`
+
+set -A courses
+
+courses=$@
+
+echo ${#courses[@]}
+
+if [ -e ~/.config/coursera_downloader ]; then
+  source ~/.config/coursera_downloader
+fi
+
+if [ ${#courses[@]} -eq 0 ]; then
+  echo "Must specify some courses" >&2
+  echo $USAGE >&2
+  exit 1
+fi
+
+echo $username
+echo $password
+echo $output_dir

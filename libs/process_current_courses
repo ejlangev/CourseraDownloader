@@ -1,0 +1,39 @@
+#!/bin/bash
+
+COURSE=$1
+
+cd Current/$COURSE
+
+mkdir -p $COURSE
+
+find . -type d -maxdepth 1 -not -name ".*" -print0 | while IFS= read -r -d '' dir
+do
+  base=$(basename "$dir")
+  if [ -e "$COURSE/${base}.mp4" ]; then
+    echo "${base}.mp4 already exists.  Skipping."
+    continue
+  fi
+  $(touch tmpfile)
+  # Dir now contains directories which need to have files in them processed
+  if [ "$base" != "$COURSE" ]; then
+    echo "Finding files"
+    find "$dir" -type d -not -name ".*" -print0 | while IFS= read -r -d '' subdir
+    do
+      if [ "$dir" == "$subdir" ]; then
+        continue
+      fi
+      echo "$subdir"
+      find "$subdir" -iregex '.*\(mp4\)' -print0 | while IFS= read -r -d '' file
+      do
+        echo "file '$(grealpath "$file")'" >> tmpfile
+      done
+    done
+    # tmpfile now contains all the files to concatenate with ffmpeg
+    echo "Concatenating files"
+    echo "$COURSE/${base}.mp4"
+    ffmpeg -f concat -i tmpfile -c copy "$COURSE/${base}.mp4" </dev/null
+    $(rm -f tmpfile)
+  fi
+done
+
+cd ../../
