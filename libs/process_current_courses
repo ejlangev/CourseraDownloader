@@ -31,7 +31,7 @@ do
     # tmpfile now contains all the files to concatenate with ffmpeg
     echo "Concatenating files"
     echo "$COURSE/${base}.mp4"
-    ffmpeg -f concat -i tmpfile -c copy "$COURSE/${base}.mp4" </dev/null
+    ffmpeg -f concat -i tmpfile -c copy "$COURSE/${base}.mp4" </dev/null > /dev/null 2> /dev/null
     $(rm -f tmpfile)
   fi
 done

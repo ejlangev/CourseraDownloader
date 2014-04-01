@@ -1,8 +1,12 @@
 #!/bin/ksh
 
-USAGE="Usage: `basename $0` [-hv] [-u username] [-p password] [-d output_dir] [course_names...]"
+USAGE="Usage: `basename $0` [-hv] [-u username] [-p password] [-d output_dir] [-n skip_extensions] [-r reverse_section_order] [-l logfile] [course_names...]"
 
-while getopts hvu:p:d: OPT; do
+if [ -e ~/.config/coursera_downloader ]; then
+  source ~/.config/coursera_downloader
+fi
+
+while getopts hvru:p:d:n:l: OPT; do
   case "$OPT" in
     h)
       echo $USAGE
@@ -21,6 +25,15 @@ while getopts hvu:p:d: OPT; do
     d)
       output_dir=$OPTARG
       ;;
+    n)
+      skip_extensions=$OPTARG
+      ;;
+    r)
+      reverse_order=true
+      ;;
+    l)
+      log_path=$OPTARG
+      ;;
     \?)
       echo $USAGE >&2
       exit 1
@@ -31,22 +44,56 @@ done
 
 shift `expr $OPTIND - 1`
 
-set -A courses
+possible_courses=$@
+possible_courses=${possible_courses#}
 
-courses=$@
-
-echo ${#courses[@]}
-
-if [ -e ~/.config/coursera_downloader ]; then
-  source ~/.config/coursera_downloader
+if [ ${#possible_courses} -eq 1 ] && [ ${possible_courses[0]:=""} -eq "" ]; then
+  set -A final_courses ${courses[*]}
+elif [ ${#possible_courses} -eq 0 ]; then
+  set -A final_courses ${courses[*]}
+else
+  set -A final_courses ${possible_courses[*]}
 fi
 
-if [ ${#courses[@]} -eq 0 ]; then
+if [ ${#final_courses[@]} -eq 0 ]; then
   echo "Must specify some courses" >&2
   echo $USAGE >&2
   exit 1
 fi
 
-echo $username
-echo $password
-echo $output_dir
+output_dir=${output_dir:=courses}
+
+# Deal with output directories
+if [ ! -d $output_dir ] || [ ! -d $output_dir/processed ] || [ ! -d $output_dir/unprocessed ]; then
+  echo "Creating destination directories"
+  $(mkdir -v -p "$output_dir/processed")
+  $(mkdir -v -p "$output_dir/unprocessed")
+fi
+
+# Deal with section order variable
+order_param=""
+if [ $reverse_order ]; then
+  order_param="--reverse-sections"
+fi
+
+# Set the default log path to /dev/null
+log_path=${log_path:="/dev/null"}
+# Truncate the old log file before each run
+$(gtruncate --size 0 $log_path)
+
+for course in ${final_courses[@]}; do
+  echo "Downloading $course to $output_dir/processed/$course"
+  ./libs/courseradownloader -u $username -p $password -d $output_dir/unprocessed/ -n $skip_extensions $order_param $course 2> $log_path >> $log_path
+  if [ $? -eq 0 ]; then
+    echo "Processing video for $course"
+    ./libs/process_course_video $output_dir/unprocessed/$course >> $log_path 2> $log_path
+
+    if [ $? -eq 0 ]; then
+      echo "Successfully downloaded $course"
+    else
+      echo "Failed to process video for $course"
+    fi
+  else
+    echo "Failed to finish downloading $course" >&2
+  fi
+done

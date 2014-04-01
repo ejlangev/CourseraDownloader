@@ -1,0 +1,49 @@
+#!/bin/ksh
+
+USAGE="Usage: `basename $0` [-hv] [-d output_root_dir] [course_root]"
+
+while getopts hvd: OPT; do
+  case "$OPT" in
+    h)
+      echo $USAGE
+      exit 0
+      ;;
+    v)
+      echo "`basename $0` version 0.1"
+      exit 0
+      ;;
+    d)
+      output_dir=$OPTARG
+      ;;
+    \?)
+      echo $USAGE >&2
+      exit 1
+      ;;
+  esac
+done
+
+shift `expr $OPTIND - 1`
+
+if [ $# -eq 0 ]; then
+  echo "Must specify a course to process" >&2
+  echo $USAGE >&2
+  exit 1
+fi
+
+# Set up variables
+course_root_dir=$1
+course_name=$(basename $course_root_dir)
+default_path=$(grealpath "$course_root_dir/../../processed/")
+output_root_dir=${output_dir:=$default_path}
+
+# create directory for output if necessary
+mkdir -p $output_root_dir/$course_name
+
+# Find all the directories in the proper folder and loop through
+# them one at a time, these represent weeks of each course
+find $course_root_dir -type d -maxdepth 1 -not -name ".*" -print0 | while IFS= read dir
+do
+  touch $dir
+  echo "ABCD"
+  echo $dir
+done
