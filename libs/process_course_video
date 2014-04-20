@@ -31,7 +31,7 @@ if [ $# -eq 0 ]; then
 fi
 
 # Set up variables
-course_root_dir=$1
+course_root_dir=$(grealpath $1)
 course_name=$(basename $course_root_dir)
 default_path=$(grealpath "$course_root_dir/../../processed/")
 output_root_dir=${output_dir:=$default_path}
@@ -39,11 +39,33 @@ output_root_dir=${output_dir:=$default_path}
 # create directory for output if necessary
 mkdir -p $output_root_dir/$course_name
 
+cd $course_root_dir
 # Find all the directories in the proper folder and loop through
 # them one at a time, these represent weeks of each course
-find $course_root_dir -type d -maxdepth 1 -not -name ".*" -print0 | while IFS= read dir
+find . -type d -maxdepth 1 -not -name ".*" | while IFS= read -r -d '' dir
 do
-  touch $dir
-  echo "ABCD"
-  echo $dir
+  # Check if the proper output file already exists
+  no_space_name=$(echo $(basename $dir) | awk '{ gsub (" ", ".", $0); print}')
+  output_file=$(grealpath "$output_root_dir/$course_name/$no_space_name.mp4")
+  full_dir="$(grealpath "$dir")"
+  if [ -e $output_file ]; then
+    echo "$output_file already exists. Skipping."
+    continue
+  fi
+  # Create a temporary file that stores file names
+  $(touch tmpfile)
+  cd "$full_dir"
+  find . -type d -not -name ".*" | while IFS= read -r -d '' subdir
+  do
+    full_subdir="$(grealpath "$subdir")"
+    cd "$full_subdir"
+    find . -iregex '.*\(mp4\)' | while IFS= read -r -d '' file
+    do
+      echo "file '$(grealpath "$file")'" >> "$course_root_dir/tmpfile"
+    done
+    cd ..
+  done
+  cd $course_root_dir
+  ffmpeg -f concat -i tmpfile -c copy "$output_file" </dev/null > /dev/null 2> /dev/null
+  $(rm -f tmpfile)
 done
